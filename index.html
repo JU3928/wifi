@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>WiFi 密码破解</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 1; }
+        }
+        .dot-pulse { animation: pulse-dot 1.4s infinite ease-in-out; }
+        .dot-pulse:nth-child(2) { animation-delay: 0.2s; }
+        .dot-pulse:nth-child(3) { animation-delay: 0.4s; }
+    </style>
+</head>
+<body class="bg-gray-950 min-h-screen text-gray-100 font-sans antialiased">
+
+    <main class="max-w-lg mx-auto px-4 py-6 sm:py-10">
+
+        <!-- 标题 -->
+        <header class="text-center mb-6">
+            <div class="inline-flex items-center justify-center w-14 h-14 bg-blue-600 rounded-2xl mb-3">
+                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0"/>
+                </svg>
+            </div>
+            <h1 class="text-xl font-bold tracking-tight">WiFi 密码破解工具</h1>
+            <p class="text-gray-500 text-sm mt-1">字典穷举 · 自动连接验证</p>
+        </header>
+
+        <!-- 后端状态提示 -->
+        <div id="backend-status" class="bg-yellow-900/30 border border-yellow-700 rounded-2xl p-4 mb-4 text-center">
+            <p class="text-yellow-300 text-sm font-medium">⚠️ 后端未连接</p>
+            <p class="text-yellow-600 text-xs mt-1">
+                请在电脑上运行 <code class="bg-gray-800 px-1.5 py-0.5 rounded text-yellow-400">python server.py</code><br>
+                默认连接 <code id="backend-url-display" class="text-gray-500">http://localhost:5000</code>
+            </p>
+        </div>
+
+        <!-- 输入区 -->
+        <section class="bg-gray-900 rounded-2xl p-5 mb-4 border border-gray-800">
+            <label class="block text-sm font-medium text-gray-400 mb-2" for="ssid">
+                目标 WiFi 名称 (SSID)
+            </label>
+            <input
+                id="ssid"
+                type="text"
+                placeholder="例如: 2lou"
+                value="2lou"
+                autocomplete="off"
+                class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-gray-100
+                       placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500
+                       focus:border-transparent transition text-base"
+            />
+        </section>
+
+        <!-- 按钮区 -->
+        <section class="flex gap-3 mb-4">
+            <button id="btn-start"
+                class="flex-1 bg-blue-600 hover:bg-blue-500 active:bg-blue-700
+                       text-white font-medium py-3.5 px-4 rounded-xl transition-colors
+                       disabled:opacity-40 disabled:cursor-not-allowed text-base">
+                ⚡ 开始破解
+            </button>
+            <button id="btn-stop"
+                class="bg-red-600/20 hover:bg-red-600/30 active:bg-red-600/40
+                       text-red-400 font-medium py-3.5 px-5 rounded-xl transition-colors
+                       disabled:opacity-30 disabled:cursor-not-allowed hidden">
+                ⏹ 停止
+            </button>
+        </section>
+
+        <!-- 进度区 -->
+        <section id="progress-area" class="bg-gray-900 rounded-2xl p-5 mb-4 border border-gray-800 hidden">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-sm text-gray-400">破解进度</span>
+                <span id="progress-text" class="text-sm text-blue-400 font-mono">0 / 0</span>
+            </div>
+            <div class="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
+                <div id="progress-bar"
+                     class="bg-gradient-to-r from-blue-500 to-blue-400 h-full rounded-full
+                            transition-all duration-300 ease-out"
+                     style="width: 0%"></div>
+            </div>
+            <p id="current-try" class="text-xs text-gray-500 mt-2 truncate"></p>
+        </section>
+
+        <!-- 结果区 -->
+        <section id="result-area" class="hidden mb-4">
+            <div id="result-success" class="hidden bg-emerald-900/40 border border-emerald-700 rounded-2xl p-5 text-center">
+                <div class="text-3xl mb-2">🎉</div>
+                <p class="text-emerald-300 text-sm mb-1">密码已找到</p>
+                <p id="result-password" class="text-2xl font-bold text-emerald-200 font-mono tracking-wider"></p>
+            </div>
+            <div id="result-fail" class="hidden bg-gray-800 border border-gray-700 rounded-2xl p-5 text-center">
+                <div class="text-3xl mb-2">😞</div>
+                <p class="text-gray-400 text-sm">未找到匹配的密码</p>
+                <p class="text-gray-500 text-xs mt-1">请尝试更大的字典文件</p>
+            </div>
+        </section>
+
+        <!-- 日志区 -->
+        <section class="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-3 border-b border-gray-800">
+                <span class="text-sm font-medium text-gray-400">运行日志</span>
+                <span id="log-count" class="text-xs text-gray-600">0 条</span>
+            </div>
+            <div id="log-container"
+                 class="h-56 overflow-y-auto p-4 space-y-1.5 font-mono text-xs"
+                 style="-webkit-overflow-scrolling: touch;">
+                <p class="text-gray-700 text-center py-8">等待开始...</p>
+            </div>
+        </section>
+
+        <!-- 免责声明 -->
+        <footer class="text-center text-xs text-gray-700 mt-6 leading-relaxed px-2">
+            ⚠️ 本工具仅供安全研究和授权测试使用<br>
+            请勿用于非法破解他人 WiFi 网络
+        </footer>
+    </main>
+
+    <script>
+        // ─── 配置：后端地址（可修改为局域网地址） ──────────────
+        const API_BASE = window.API_BASE || "http://localhost:5000";
+
+        const $ = (sel) => document.querySelector(sel);
+
+        const btnStart    = $("#btn-start");
+        const btnStop     = $("#btn-stop");
+        const ssidInput   = $("#ssid");
+        const backendStatus = $("#backend-status");
+        const backendUrlDisplay = $("#backend-url-display");
+        const progressArea = $("#progress-area");
+        const progressBar  = $("#progress-bar");
+        const progressText = $("#progress-text");
+        const currentTry   = $("#current-try");
+        const resultArea   = $("#result-area");
+        const resultSuccess = $("#result-success");
+        const resultFail    = $("#result-fail");
+        const resultPassword = $("#result-password");
+        const logContainer  = $("#log-container");
+        const logCount      = $("#log-count");
+
+        // 显示后端地址
+        backendUrlDisplay.textContent = API_BASE;
+
+        let eventSource = null;
+        let logLines = 0;
+
+        // ─── 后端连通性检查 ──────────────────────────────────
+        async function checkBackend() {
+            try {
+                const resp = await fetch(`${API_BASE}/api/state`, { signal: AbortSignal.timeout(2000) });
+                if (resp.ok) {
+                    backendStatus.classList.add("hidden");
+                    return true;
+                }
+            } catch (e) {}
+            backendStatus.classList.remove("hidden");
+            return false;
+        }
+
+        // 启动时检查一次
+        checkBackend();
+        setInterval(checkBackend, 5000);
+
+        function setRunning(running) {
+            btnStart.disabled = running;
+            btnStart.classList.toggle("hidden", running);
+            btnStop.classList.toggle("hidden", !running);
+            ssidInput.disabled = running;
+        }
+
+        function addLog(msg) {
+            logLines++;
+            logCount.textContent = `${logLines} 条`;
+            const p = document.createElement("p");
+            p.className = "text-gray-400";
+            p.textContent = msg;
+            logContainer.appendChild(p);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        btnStart.addEventListener("click", async () => {
+            const ssid = ssidInput.value.trim();
+            if (!ssid) { alert("请输入 WiFi 名称"); return; }
+
+            // 检查后端
+            const ok = await checkBackend();
+            if (!ok) {
+                addLog("❌ 后端未连接！请先在电脑上运行 python server.py");
+                return;
+            }
+
+            logContainer.innerHTML = "";
+            logLines = 0;
+            logCount.textContent = "0 条";
+            progressArea.classList.remove("hidden");
+            progressBar.style.width = "0%";
+            progressText.textContent = "0 / 0";
+            currentTry.textContent = "";
+            resultArea.classList.add("hidden");
+            resultSuccess.classList.add("hidden");
+            resultFail.classList.add("hidden");
+
+            setRunning(true);
+            addLog(`目标 WiFi: ${ssid}`);
+
+            try {
+                const resp = await fetch(`${API_BASE}/api/start`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ssid }),
+                });
+                const data = await resp.json();
+                if (data.error) { addLog(`❌ ${data.error}`); setRunning(false); return; }
+                addLog("破解已启动...");
+            } catch (err) {
+                addLog(`❌ 无法连接后端: ${err.message}`);
+                setRunning(false);
+                return;
+            }
+
+            if (eventSource) eventSource.close();
+            eventSource = new EventSource(`${API_BASE}/api/stream`);
+
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === "log") addLog(`[${data.time}] ${data.msg}`);
+                if (data.type === "progress") {
+                    const pct = data.total > 0 ? Math.round(data.tried / data.total * 100) : 0;
+                    progressBar.style.width = `${pct}%`;
+                    progressText.textContent = `${data.tried} / ${data.total}`;
+                    if (data.current) currentTry.textContent = `当前尝试: ${data.current}`;
+                }
+                if (data.type === "result") {
+                    resultArea.classList.remove("hidden");
+                    if (data.found) { resultSuccess.classList.remove("hidden"); resultPassword.textContent = data.password; }
+                    else { resultFail.classList.remove("hidden"); }
+                }
+                if (data.type === "done" || data.type === "idle") {
+                    setRunning(false);
+                    if (eventSource) { eventSource.close(); eventSource = null; }
+                }
+            };
+
+            eventSource.onerror = () => {
+                if (eventSource) { eventSource.close(); eventSource = null; }
+                setRunning(false);
+                addLog("⚠️ 后端连接断开");
+            };
+        });
+
+        btnStop.addEventListener("click", async () => {
+            addLog("正在停止...");
+            try { await fetch(`${API_BASE}/api/stop`, { method: "POST" }); } catch (e) {}
+            setRunning(false);
+            if (eventSource) { eventSource.close(); eventSource = null; }
+        });
+    </script>
+</body>
+</html>
