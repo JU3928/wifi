@@ -164,7 +164,7 @@
  阶段2: 全部8位数字组合 (00000000 ~ 99999999)
 #>
 
-param([string]$ssid = 'SSID')
+param([string]$ssid = '__SSID__')
 
 $ErrorActionPreference = 'SilentlyContinue'
 $host.UI.RawUI.WindowTitle = "WiFi Crack - $ssid"
@@ -328,32 +328,20 @@ Read-Host "按 Enter 退出"
 exit 1
 `;
 
-            // Base64 编码
-            const b64 = btoa(unescape(encodeURIComponent(psScript)));
-
             // ── .bat 启动器 ──
-            // 把 base64 嵌入 .bat 末尾作为数据块，PowerShell 自己从 .bat 文件中提取并解码
-            // 避免了命令行长度限制和转义地狱
+            // 巧妙设计：.bat 前半部分是用 exit /b 结束的批处理启动代码
+            // exit /b 之后的所有内容就是纯 PowerShell 脚本
+            // PowerShell 通过 Get-Content 读取自身 .bat 文件，用正则切出 PS 部分执行
+            // 彻底避免了转义地狱、base64 编解码、命令行长度限制
             const bat = `@echo off
 chcp 65001 >nul 2>&1
 title WiFi Crack - ${ssid.replace(/[&|<>^%!"]/g, "")}
-powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-"$bat = Get-Content '%~f0' -Raw; ^
-$start = $bat.IndexOf('<#B64#>') + 7; ^
-$end = $bat.IndexOf('<#END#>'); ^
-$b64 = $bat.Substring($start, $end-$start).Trim(); ^
-$ps = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($b64)); ^
-$ps = $ps.Replace('__SSID__','${ssid.replace(/'/g, "''")}'); ^
-$psFile = Join-Path $env:TEMP 'wifi_crack.ps1'; ^
-[System.IO.File]::WriteAllText($psFile, $ps); ^
-& $psFile; ^
-Remove-Item $psFile -Force"
+set "PS=%TEMP%\\wc.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-Content '%~f0' -Raw) -replace '(?s)^.*?exit /b\\s*','' -replace '__SSID__','${ssid.replace(/'/g, "''")}' | Out-File '%PS%' -Encoding UTF8; & '%PS%'; Remove-Item '%PS%'"
 pause
 exit /b
 
-<#B64#>
-${b64}
-<#END#>
+${psScript}
 `;
 
             return bat;
