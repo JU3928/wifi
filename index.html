@@ -22,7 +22,7 @@
                 </svg>
             </div>
             <h1 class="text-xl font-bold tracking-tight">WiFi 密码破解工具</h1>
-            <p class="text-gray-500 text-sm mt-1">纯离线 · 下载脚本双击运行 · 无需安装任何东西</p>
+            <p class="text-gray-500 text-sm mt-1">纯离线 · 右键运行 · 无需安装任何东西</p>
         </header>
 
         <!-- 输入区 -->
@@ -61,8 +61,8 @@
         <section class="bg-blue-900/20 border border-blue-800 rounded-2xl p-4 mb-4">
             <p class="text-blue-300 text-xs leading-relaxed">
                 <span class="font-medium">💡 使用方式</span><br>
-                填写 SSID → 点击<strong>下载</strong> → 得到 <code>.bat</code> 文件<br>
-                在 Windows 电脑上<strong>双击运行</strong>（会自动调用 PowerShell）<br>
+                填写 SSID → 点击<strong>下载</strong> → 得到 <code>.ps1</code> 文件<br>
+                右键点击文件 → <strong>"使用 PowerShell 运行"</strong><br>
                 顺序：先试常见密码 → 再试全部8位数字（00000000~99999999）→ 全部失败则显示"已尽力了"
             </p>
         </section>
@@ -73,7 +73,7 @@
                 class="flex-1 bg-blue-600 hover:bg-blue-500 active:bg-blue-700
                        text-white font-medium py-3.5 px-4 rounded-xl transition-colors
                        disabled:opacity-40 disabled:cursor-not-allowed text-base">
-                ⬇ 下载破解脚本
+                ⬇ 下载破解脚本 (.ps1)
             </button>
         </section>
 
@@ -328,27 +328,10 @@ Read-Host "按 Enter 退出"
 exit 1
 `;
 
-            // ── .bat 启动器 ──
-            // 巧妙设计：.bat 前半部分是用 exit /b 结束的批处理启动代码
-            // exit /b 之后的所有内容就是纯 PowerShell 脚本
-            // PowerShell 通过 Get-Content 读取自身 .bat 文件，用正则切出 PS 部分执行
-            // 彻底避免了转义地狱、base64 编解码、命令行长度限制
-            const bat = `@echo off
-chcp 65001 >nul 2>&1
-title WiFi Crack - ${ssid.replace(/[&|<>^%!"]/g, "")}
-set "PS=%TEMP%\\wc.ps1"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-Content '%~f0' -Raw) -replace '(?s)^.*?exit /b\\s*','' -replace '__SSID__','${ssid.replace(/'/g, "''")}' | Out-File '%PS%' -Encoding UTF8; & '%PS%'; Remove-Item '%PS%'"
-pause
-exit /b
-
-${psScript}
-`;
-
-            return bat;
+            // ── 直接生成 .ps1 脚本下载 ──
+            const scriptContent = psScript.replace(/__SSID__/g, ssid.replace(/'/g, "''"));
+            return scriptContent;
         }
-
-        function escapeBat(s) { return s.replace(/[&|<>^%!"]/g, ""); }
-        function escapePS(s) { return s.replace(/'/g, "''").replace(/`/g, "'`'"); }
 
         // ─── 下载 ────────────────────────────────────────────
         btnDownload.addEventListener("click", () => {
@@ -357,12 +340,12 @@ ${psScript}
             const passwords = wordlistEl.value.split("\n").filter(l => l.trim());
             if (!passwords.length) { alert("请填写至少一个密码"); return; }
 
-            const batContent = build(ssid, passwords);
-            const blob = new Blob([batContent], { type: "application/octet-stream" });
+            const psContent = build(ssid, passwords);
+            const blob = new Blob(["﻿" + psContent], { type: "text/plain" });
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = `crack_${ssid}.bat`;
+            a.download = `crack_${ssid}.ps1`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
