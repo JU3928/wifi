@@ -16,6 +16,15 @@ from flask import Flask, render_template, request, Response, jsonify
 
 app = Flask(__name__)
 
+
+@app.after_request
+def add_cors(response):
+    """允许 GitHub Pages 等外部来源访问 API"""
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return response
+
 # ─── 全局状态（线程安全） ────────────────────────────────────────────
 
 state_lock = threading.Lock()
